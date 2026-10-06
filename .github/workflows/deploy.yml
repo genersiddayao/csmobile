@@ -27,11 +27,12 @@ jobs:
 
       - name: Prepare site
         run: |
-          mkdir site
-          cp -r out/wwwroot/. site/
+          mkdir -p site/app
+          cp -r out/wwwroot/. site/app/
+          cp -r landing/. site/
           touch site/.nojekyll
           du -sh site
-          du -ch site/_framework/*.br | tail -1
+          du -ch site/app/_framework/*.br | tail -1
 
       - name: Deploy to gh-pages branch
         run: |

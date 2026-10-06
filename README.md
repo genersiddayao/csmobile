@@ -2,7 +2,8 @@
 
 **A free C# console editor and runner for your phone.** No install, no fee, no sign-up.
 
-### ▶ Open the app: **https://genersiddayao.github.io/csmobile/**
+### ▶ Website: **https://genersiddayao.github.io/csmobile/**
+### ▶ Go straight to the app: **https://genersiddayao.github.io/csmobile/app/**
 
 Built for students and faculty of Cagayan State University, and free for anyone learning C#.
 
@@ -28,7 +29,7 @@ Programming courses like Data Structures and Algorithms use C# console apps, but
 
 ## Quick start
 
-1. Open **https://genersiddayao.github.io/csmobile/** on your phone. The first visit downloads the compiler (about 6 MB). After that it opens from your phone's cache.
+1. Open **https://genersiddayao.github.io/csmobile/** on your phone and tap **Launch the app**. The first visit downloads the compiler (about 6 MB). After that it opens from your phone's cache.
 2. Type your program, or open the menu (☰) and pick an example.
 3. Tap **Run**. When your program asks for input, type in the console and press Enter.
 
@@ -50,7 +51,7 @@ Input normally appears inline in the console. In rare cases (for example, readin
 - Before compiling, the code is rewritten so `Console.ReadLine()` can wait for typing without freezing the page: methods that read input become `async`, and their calls are awaited. Line numbers are preserved, so errors point to the student's original line.
 - GitHub Actions builds the app and publishes it to the `gh-pages` branch, which GitHub Pages serves.
 
-Source: `src/CSharpMobile/` · Build: `.github/workflows/deploy.yml`
+Source: `src/CSharpMobile/` (the app, served at `/app/`) · `landing/` (the welcome page) · Build: `.github/workflows/deploy.yml`
 
 ## About
 
