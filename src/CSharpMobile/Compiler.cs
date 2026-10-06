@@ -2,6 +2,7 @@ using Microsoft.JSInterop;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
+using Microsoft.CodeAnalysis.Text;
 
 namespace CSharpMobile;
 
@@ -33,9 +34,9 @@ internal static class Compiler
 
     static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(LanguageVersion.Latest);
 
-    static readonly SyntaxTree GlobalUsings = CSharpSyntaxTree.ParseText(
+    static readonly SyntaxTree GlobalUsings = CSharpSyntaxTree.ParseText(SourceText.From(
         "global using System;\nglobal using System.Collections.Generic;\nglobal using System.IO;\n" +
-        "global using System.Linq;\nglobal using System.Text;\nglobal using System.Threading;\nglobal using System.Threading.Tasks;\n",
+        "global using System.Linq;\nglobal using System.Text;\nglobal using System.Threading;\nglobal using System.Threading.Tasks;\n", System.Text.Encoding.UTF8),
         ParseOptions, "GlobalUsings.cs");
 
     static readonly CSharpCompilationOptions CompileOptions = new CSharpCompilationOptions(
@@ -71,7 +72,7 @@ internal static class Compiler
     public static CompileOutput Compile(string code)
     {
         var result = new CompileOutput();
-        var tree0 = CSharpSyntaxTree.ParseText(code, ParseOptions, "Program.cs");
+        var tree0 = CSharpSyntaxTree.ParseText(SourceText.From(code, System.Text.Encoding.UTF8), ParseOptions, "Program.cs");
         var comp0 = CSharpCompilation.Create("UserProgram" + (++_counter), new[] { tree0, GlobalUsings }, References, CompileOptions);
 
         foreach (var d in comp0.GetDiagnostics())
@@ -94,7 +95,7 @@ internal static class Compiler
             {
                 var newRoot = new Instrumenter(model, tree0, mode).Rewrite(out var reason);
                 if (newRoot == null) { log.Append(mode).Append(": ").Append(reason).Append('\n'); continue; }
-                var tree1 = tree0.WithRootAndOptions(newRoot, ParseOptions);
+                var tree1 = CSharpSyntaxTree.Create((Microsoft.CodeAnalysis.CSharp.CSharpSyntaxNode)newRoot, ParseOptions, "Program.cs", System.Text.Encoding.UTF8);
                 var comp1 = comp0.ReplaceSyntaxTree(tree0, tree1);
                 if (TryEmit(comp1, result, out var firstError))
                 {
