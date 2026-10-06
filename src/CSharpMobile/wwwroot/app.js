@@ -555,14 +555,13 @@ async function run() {
   clearErr(); con.textContent = ""; showOutput();
   running = true; setRunBtn(); setStatus("Compiling…", "running");
   if (narrow()) setView("out");
-  append("Compiling…\n", "sys");
+  $("empty").hidden = true;
   await frame();
   let res;
   try { res = await DotNet.invokeMethodAsync("CSharpMobile", "Run", code); }
   catch (e) { res = { status: "internal", errorMessage: String(e && e.message || e) }; }
   running = false; setRunBtn();
   if (pendingInput) pendingInput.cancel();
-  if (con.firstChild && con.firstChild.textContent === "Compiling…\n" && res.status !== "compile") con.removeChild(con.firstChild);
   const secs = ms => ms < 1000 ? ms + " ms" : (ms / 1000).toFixed(1) + " s";
   if (lastLine() !== "" && res.status !== "compile") append("\n");
   switch (res.status) {
