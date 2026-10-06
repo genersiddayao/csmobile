@@ -124,13 +124,13 @@ internal static class Runner
                 res.Status = "error";
                 res.ErrorType = "System.StackOverflowException";
                 res.ErrorMessage = "Too many nested method calls. Check that your recursion has a base case that stops it.";
-                res.ErrorLine = FindLine(ex);
+                res.ErrorLine = FindLine(ex, asm, co.Pdb);
                 return res;
             }
             res.Status = "error";
             res.ErrorType = ex.GetType().FullName;
             res.ErrorMessage = ex.Message;
-            res.ErrorLine = FindLine(ex);
+            res.ErrorLine = FindLine(ex, asm, co.Pdb);
             return res;
         }
         res.Status = __Rt.StopRequested ? "stopped" : "ok";
@@ -167,18 +167,35 @@ internal static class Runner
 
     static readonly Regex LineRx = new Regex(@"Program\.cs:(?:line )?(\d+)", RegexOptions.Compiled);
 
-    static int FindLine(Exception ex)
+    static int FindLine(Exception ex, Assembly userAsm, byte[] pdb)
     {
         try
         {
-            var st = ex.StackTrace ?? "";
-            var m = LineRx.Match(st);
+            var m = LineRx.Match(ex.StackTrace ?? "");
             if (m.Success) return int.Parse(m.Groups[1].Value);
-            var trace = new StackTrace(ex, true);
+        }
+        catch { }
+        // Mono in the browser doesn't print line numbers, so map IL offsets through our own PDB.
+        try
+        {
+            using var provider = System.Reflection.Metadata.MetadataReaderProvider.FromPortablePdbImage(System.Collections.Immutable.ImmutableArray.Create(pdb));
+            var reader = provider.GetMetadataReader();
+            var trace = new StackTrace(ex, false);
             foreach (var f in trace.GetFrames() ?? Array.Empty<StackFrame>())
             {
-                var file = f.GetFileName();
-                if (file != null && file.EndsWith("Program.cs") && f.GetFileLineNumber() > 0) return f.GetFileLineNumber();
+                var method = f.GetMethod();
+                if (method == null || method.Module.Assembly != userAsm) continue;
+                int il = f.GetILOffset();
+                if (il < 0) continue;
+                var handle = System.Reflection.Metadata.Ecma335.MetadataTokens.MethodDefinitionHandle(method.MetadataToken & 0xFFFFFF);
+                var info = reader.GetMethodDebugInformation(handle.ToDebugInformationHandle());
+                int line = 0;
+                foreach (var sp in info.GetSequencePoints())
+                {
+                    if (sp.Offset > il) break;
+                    if (!sp.IsHidden) line = sp.StartLine;
+                }
+                if (line > 0) return line;
             }
         }
         catch { }
