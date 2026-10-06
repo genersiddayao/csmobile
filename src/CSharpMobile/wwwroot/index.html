@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>C#Mobile</title>
+<base href="/csmobile/">
+<meta name="description" content="Free C# console editor and runner for phones, made for Cagayan State University students.">
+<meta name="theme-color" content="#6a3fc8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<style>
+/* Layout: one-screen app. Wide = editor | console side by side. Phone = Code / Console tabs + a key bar for C# symbols. */
+:root{
+  --bg:#f0eff6; --panel:#ffffff; --panel2:#f6f5fb; --ink:#1b1730; --muted:#625c7a; --line:#dcd8e8;
+  --accent:#6a3fc8; --accent-ink:#ffffff; --run:#16804f; --run-ink:#ffffff; --err:#b93228; --warn:#9a6400;
+  --sel:#e2d9fb; --errline:#fde7e4; --curline:#f6f3fd;
+  --kw:#1f4fd1; --type:#0b7a75; --str:#a3451c; --num:#7a5a00; --com:#2f7a3a; --def:#6a3fc8; --op:#1b1730;
+  --term:#14121c; --term-ink:#e7e4f0; --term-muted:#9a93b3; --term-in:#b9a3ff;
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --fs:15px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f0d17; --panel:#17141f; --panel2:#1c1926; --ink:#e7e4f0; --muted:#9a93b3; --line:#2a2638;
+  --accent:#b39dff; --accent-ink:#0f0d17; --run:#35c485; --run-ink:#06140d; --err:#ff8177; --warn:#f0b54a;
+  --sel:#352c55; --errline:#3a1f22; --curline:#1d1a28;
+  --kw:#7fa6ff; --type:#5fd3c8; --str:#f0a37a; --num:#e6c56b; --com:#79b984; --def:#c9b6ff; --op:#e7e4f0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f0d17; --panel:#17141f; --panel2:#1c1926; --ink:#e7e4f0; --muted:#9a93b3; --line:#2a2638;
+  --accent:#b39dff; --accent-ink:#0f0d17; --run:#35c485; --run-ink:#06140d; --err:#ff8177; --warn:#f0b54a;
+  --sel:#352c55; --errline:#3a1f22; --curline:#1d1a28;
+  --kw:#7fa6ff; --type:#5fd3c8; --str:#f0a37a; --num:#e6c56b; --com:#79b984; --def:#c9b6ff; --op:#e7e4f0; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;overflow:hidden;
+  padding-top:env(safe-area-inset-top,0px)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-rows:auto auto 1fr auto}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-family:var(--mono);font-weight:800;font-size:15px;letter-spacing:-.02em;white-space:nowrap;color:var(--ink);text-decoration:none}
+.brand b{color:var(--accent)}
+.fname{min-width:0;flex:1;display:flex;align-items:center}
+.fname button{background:none;border:0;padding:4px 6px;border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.fname button:hover{background:var(--panel2);color:var(--ink)}
+.icon{width:36px;height:36px;display:grid;place-items:center;border:1px solid transparent;background:none;border-radius:8px;flex:none}
+.icon:hover{background:var(--panel2);border-color:var(--line)}
+.icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.run{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border:0;border-radius:8px;background:var(--run);color:var(--run-ink);font-weight:600;flex:none}
+.run svg{width:14px;height:14px;fill:currentColor}
+.run.stop{background:var(--err);color:var(--panel)}
+.run:disabled{opacity:.55;cursor:wait}
+.tabs{display:none;background:var(--panel);border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;padding:10px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--run);margin-left:6px;vertical-align:middle}
+
+.work{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);min-height:0}
+.pane{min-height:0;min-width:0;display:flex;flex-direction:column}
+.edpane{border-right:1px solid var(--line);background:var(--panel)}
+.edwrap{flex:1;min-height:0;position:relative}
+.CodeMirror{height:100%;font-family:var(--mono);font-size:var(--fs);line-height:1.55;background:var(--panel);color:var(--ink)}
+.CodeMirror-gutters{background:var(--panel2);border-right:1px solid var(--line)}
+.CodeMirror-linenumber{color:var(--muted);font-size:.85em;padding:0 8px 0 6px}
+.CodeMirror-cursor{border-left:2px solid var(--accent)}
+.CodeMirror-selected,.CodeMirror-focused .CodeMirror-selected{background:var(--sel)}
+.CodeMirror-activeline-background{background:var(--curline)}
+.CodeMirror-matchingbracket{color:var(--ink)!important;background:var(--sel);outline:1px solid var(--accent)}
+.cm-errline{background:var(--errline)}
+.cm-s-default .cm-keyword{color:var(--kw);font-weight:600}
+.cm-s-default .cm-type,.cm-s-default .cm-variable-3{color:var(--type)}
+.cm-s-default .cm-string,.cm-s-default .cm-string-2{color:var(--str)}
+.cm-s-default .cm-number{color:var(--num)}
+.cm-s-default .cm-comment{color:var(--com);font-style:italic}
+.cm-s-default .cm-def{color:var(--def);font-weight:600}
+.cm-s-default .cm-variable,.cm-s-default .cm-variable-2,.cm-s-default .cm-property,.cm-s-default .cm-operator,.cm-s-default .cm-punctuation{color:var(--op)}
+.cm-s-default .cm-meta{color:var(--warn)}
+.cm-s-default .cm-atom,.cm-s-default .cm-builtin{color:var(--kw)}
+
+/* console: always dark, like a real terminal */
+.outpane{background:var(--term)}
+.outbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+.outbar h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:0}
+.pill{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pill.running{color:var(--run);border-color:var(--run)}
+.pill.waiting{color:var(--warn);border-color:var(--warn)}
+.pill.error{color:var(--err);border-color:var(--err)}
+.spacer{flex:1}
+.textbtn{background:none;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--muted);flex:none}
+.textbtn:hover{color:var(--ink);background:var(--panel2)}
+.outscroll{flex:1;min-height:0;overflow:auto;padding:12px 14px 28px;color:var(--term-ink)}
+.console{font-family:var(--mono);font-size:calc(var(--fs) - 1px);line-height:1.55;white-space:pre-wrap;word-break:break-word;margin:0}
+.console .err{color:#ff8a80}
+.console .sys{color:var(--term-muted);font-style:italic}
+.console .in{color:var(--term-in);font-weight:600}
+.console .jump{background:none;border:0;padding:0;color:#ff8a80;text-decoration:underline;font:inherit;cursor:pointer}
+.console input.cin{font-family:var(--mono);font-size:inherit;border:0;border-bottom:2px solid var(--term-in);background:transparent;color:var(--term-in);font-weight:600;outline:0;width:min(60%,320px);padding:0 2px;caret-color:var(--term-in)}
+.console input.cin.key{width:3.5em}
+.empty{color:var(--term-muted);font-size:13px;line-height:1.6;max-width:46ch;margin:0}
+.empty code{font-family:var(--mono);font-size:12px;color:var(--term-ink)}
+
+.keys{display:none;gap:6px;overflow-x:auto;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line);scrollbar-width:none}
+.keys::-webkit-scrollbar{display:none}
+.keys button{flex:none;min-width:38px;height:36px;padding:0 10px;border:1px solid var(--line);border-bottom-width:2px;border-radius:7px;background:var(--panel2);font-family:var(--mono);font-size:15px}
+.keys button:active{transform:translateY(1px)}
+.keys .wide{font-family:var(--ui);font-size:12px}
+
+/* loader */
+.loader{position:absolute;inset:0;display:grid;place-items:center;background:var(--panel);z-index:5;padding:24px}
+.loader .box{width:min(340px,100%);display:grid;gap:12px}
+.loader b{font-size:15px}
+.loader p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.bar{height:8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:var(--blazor-load-percentage,2%);background:var(--accent);transition:width .2s}
+.pct::after{content:var(--blazor-load-percentage-text,"");font-variant-numeric:tabular-nums}
+.loader .skip{justify-self:start}
+
+.scrim{position:fixed;inset:0;background:rgba(15,10,30,.45);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(330px,88vw);background:var(--panel);border-right:1px solid var(--line);z-index:21;transform:translateX(-102%);transition:transform .22s ease;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer.on{transform:none}
+.dhead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.dbody{flex:1;overflow:auto;padding:10px 10px 20px;display:flex;flex-direction:column;gap:18px}
+.sec h3{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 6px 6px;font-weight:600}
+.row{display:flex;align-items:center;gap:4px;border-radius:8px}
+.row>button.open{flex:1;min-width:0;text-align:left;background:none;border:0;padding:9px 8px;border-radius:8px;font-family:var(--mono);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row>button.open:hover{background:var(--panel2)}
+.row.cur>button.open{background:var(--sel);font-weight:600}
+.row .mini{width:30px;height:30px;border:0;background:none;border-radius:6px;color:var(--muted);display:grid;place-items:center;flex:none}
+.row .mini:hover{background:var(--panel2);color:var(--ink)}
+.row .mini.danger{color:var(--err);width:auto;padding:0 6px}
+.row .mini svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ex{display:block;width:100%;text-align:left;background:none;border:0;padding:8px;border-radius:8px}
+.ex:hover{background:var(--panel2)}
+.ex b{display:block;font-weight:500}
+.ex span{font-size:12px;color:var(--muted)}
+.dact{display:flex;gap:6px;flex-wrap:wrap;padding:0 6px}
+.dact .textbtn{font-size:13px;padding:6px 10px}
+.about{font-size:12px;color:var(--muted);line-height:1.6;padding:0 6px;margin:0 0 8px}
+.about code{font-family:var(--mono);font-size:11.5px}
+.rename{display:flex;gap:6px;padding:4px}
+.rename input{flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:6px 8px;border:1px solid var(--accent);border-radius:6px;background:var(--panel2)}
+.toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:30;max-width:90vw}
+.toast.on{opacity:1;transform:translateX(-50%)}
+
+@media (max-width:760px){
+  .tabs{display:flex}
+  .work{grid-template-columns:1fr}
+  .edpane{border-right:0}
+  .work[data-view="code"] .outpane{display:none}
+  .work[data-view="out"] .edpane{display:none}
+  .keys{display:flex}
+  .work[data-view="out"]~.keys{display:none}
+  .hide-narrow{display:none}
+  .run{padding:0 12px}
+}
+@media (prefers-reduced-motion:reduce){.drawer,.scrim,.toast,.bar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="icon" id="menuBtn" aria-label="Files and examples"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <a class="brand" href="./"><b>C#</b>Mobile</a>
+    <div class="fname"><button id="fnameBtn" title="Rename file">Program.cs</button></div>
+    <button class="icon hide-narrow" id="fontDown" aria-label="Smaller text"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="icon hide-narrow" id="fontUp" aria-label="Larger text"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="icon" id="themeBtn" aria-label="Switch theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    <button class="run" id="runBtn" disabled><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg><span>Run</span></button>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tabCode" aria-selected="true">Code</button>
+    <button role="tab" id="tabOut" aria-selected="false">Console<span class="dot" id="outDot" hidden></span></button>
+  </nav>
+  <main class="work" id="work" data-view="code">
+    <section class="pane edpane">
+      <div class="edwrap" id="edwrap">
+        <div class="loader" id="loader">
+          <div class="box">
+            <b id="loadTitle">Downloading the C# compiler…</b>
+            <div class="bar"><i></i></div>
+            <p><span class="pct"></span> <span id="loadNote">This happens once (about 10 MB). Next time it opens from your phone's cache.</span></p>
+            <button class="textbtn skip" id="skipLoad">Edit code while it loads</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="pane outpane">
+      <div class="outbar">
+        <h2>Console</h2>
+        <span class="pill" id="status">Loading…</span>
+        <span class="spacer"></span>
+        <button class="textbtn" id="copyOut">Copy</button>
+        <button class="textbtn" id="clearOut">Clear</button>
+      </div>
+      <div class="outscroll" id="outscroll">
+        <pre class="console" id="console"></pre>
+        <p class="empty" id="empty">Press <b>Run</b> to compile and run your program. Output appears here, and when your code calls <code>Console.ReadLine()</code> you type the answer right here.</p>
+      </div>
+    </section>
+  </main>
+  <div class="keys" id="keys"></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Files">
+  <div class="dhead"><span class="brand"><b>C#</b>Mobile</span><button class="icon" id="closeDrawer" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="dbody">
+    <div class="sec">
+      <h3>My files</h3>
+      <div id="fileList"></div>
+      <div class="dact" style="margin-top:8px">
+        <button class="textbtn" id="newFile">+ New file</button>
+        <button class="textbtn" id="importBtn">Open .cs from phone</button>
+        <button class="textbtn" id="copyCode">Copy code</button>
+        <input type="file" id="importInput" accept=".cs,.txt,text/plain" hidden>
+      </div>
+    </div>
+    <div class="sec">
+      <h3>Examples</h3>
+      <div id="exList"></div>
+    </div>
+    <div class="sec">
+      <h3>About</h3>
+      <p class="about">Free C# console runner for students. It uses Microsoft's real C# compiler (Roslyn) and .NET 8, running on your phone. Your files are saved in this browser.</p>
+      <p class="about">Supports classes, generics, <code>List</code>, <code>Stack</code>, <code>Queue</code>, <code>Dictionary</code>, LINQ, exceptions, <code>Console.ReadLine</code>, <code>ReadKey</code>, <code>Clear</code> and colors. File access, threads and NuGet packages are not available.</p>
+      <p class="about">Made by Generino P. Siddayao, CICS, Cagayan State University.</p>
+    </div>
+  </div>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="app.js"></script>
+<script src="_framework/blazor.webassembly.js" autostart="false"></script>
+<script type="module">
+import { BrotliDecode } from './decode.min.js';
+const compressible = new Set(['assembly', 'pdb', 'dotnetwasm', 'globalization']);
+function loadBootResource(type, name, defaultUri) {
+  if (location.hostname === 'localhost' || !compressible.has(type)) return undefined;
+  return (async () => {
+    try {
+      const r = await fetch(defaultUri + '.br');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const bytes = BrotliDecode(new Int8Array(await r.arrayBuffer()));
+      const ct = type === 'dotnetwasm' ? 'application/wasm' : 'application/octet-stream';
+      return new Response(bytes, { headers: { 'content-type': ct } });
+    } catch (e) {
+      return fetch(defaultUri);
+    }
+  })();
+}
+Blazor.start({ loadBootResource, webAssembly: { loadBootResource } })
+  .catch(err => window.csm && window.csm.loadFailed(err));
+</script>
+</body>
+</html>
