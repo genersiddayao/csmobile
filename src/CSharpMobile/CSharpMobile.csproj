@@ -18,7 +18,8 @@
     <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
 
     <BlazorEnableCompression>true</BlazorEnableCompression>
-    <WasmEnableWebcil>true</WasmEnableWebcil>
+    <!-- Plain .dll files so Roslyn can read them as compiler references. -->
+    <WasmEnableWebcil>false</WasmEnableWebcil>
   </PropertyGroup>
 
   <ItemGroup>

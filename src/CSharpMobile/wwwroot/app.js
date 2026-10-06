@@ -510,6 +510,16 @@ window.csm = {
     append(r, "in"); append("\n");
     return r;
   },
+  async fetchAssembly(file) {
+    const url = "_framework/" + file;
+    if (location.hostname !== "localhost" && window.__brotliDecode) {
+      try {
+        const r = await fetch(url + ".br");
+        if (r.ok) { const out = window.__brotliDecode(new Int8Array(await r.arrayBuffer())); return new Uint8Array(out.buffer, out.byteOffset, out.length); }
+      } catch (e) {}
+    }
+    try { const r = await fetch(url); if (!r.ok) return null; return new Uint8Array(await r.arrayBuffer()); } catch (e) { return null; }
+  },
   dotnetReady() {
     ready = true;
     $("loadTitle").textContent = "Starting the compiler…";

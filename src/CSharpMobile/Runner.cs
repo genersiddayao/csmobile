@@ -29,17 +29,18 @@ internal static class Runner
         _stopTcs?.TrySetResult(true);
     }
 
-    public static Task<string> WarmupAsync()
+    public static async Task<string> WarmupAsync()
     {
         var sw = Stopwatch.StartNew();
         try
         {
+            await Compiler.EnsureReferencesAsync();
             Compiler.Compile("using System;\nclass P { static void Main() { int n = int.Parse(Console.ReadLine() ?? \"0\"); for (int i = 0; i < n; i++) Console.WriteLine(i); } }");
-            return Task.FromResult("ok " + sw.ElapsedMilliseconds);
+            return "ok " + sw.ElapsedMilliseconds;
         }
         catch (Exception ex)
         {
-            return Task.FromResult("warmup failed: " + ex.Message);
+            return "warmup failed: " + ex.Message;
         }
     }
 
@@ -49,7 +50,7 @@ internal static class Runner
         if (_running) Stop();
         var sw = Stopwatch.StartNew();
         CompileOutput co;
-        try { co = Compiler.Compile(code); }
+        try { await Compiler.EnsureReferencesAsync(); co = Compiler.Compile(code); }
         catch (Exception ex)
         {
             res.Status = "internal";

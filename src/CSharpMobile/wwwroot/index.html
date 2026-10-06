@@ -245,6 +245,7 @@ button{cursor:pointer}
 <script src="_framework/blazor.webassembly.js" autostart="false"></script>
 <script type="module">
 import { BrotliDecode } from './decode.min.js';
+window.__brotliDecode = BrotliDecode;
 const compressible = new Set(['assembly', 'pdb', 'dotnetwasm', 'globalization']);
 function loadBootResource(type, name, defaultUri) {
   if (location.hostname === 'localhost' || !compressible.has(type)) return undefined;

@@ -1,5 +1,4 @@
-using System.Reflection;
-using System.Reflection.Metadata;
+using Microsoft.JSInterop;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -49,35 +48,24 @@ internal static class Compiler
     static List<MetadataReference> _refs;
     static int _counter;
 
-    static List<MetadataReference> References
-    {
-        get
-        {
-            if (_refs != null) return _refs;
-            var list = new List<MetadataReference>();
-            foreach (var name in ReferenceNames)
-            {
-                try
-                {
-                    var r = RefFor(Assembly.Load(new AssemblyName(name)));
-                    if (r != null) list.Add(r);
-                }
-                catch { /* assembly not shipped; skip */ }
-            }
-            list.Add(RefFor(typeof(__Con).Assembly));
-            _refs = list;
-            return list;
-        }
-    }
+    static List<MetadataReference> References => _refs ?? throw new InvalidOperationException("Compiler references not loaded yet.");
 
-    static unsafe MetadataReference RefFor(Assembly a)
+    /// <summary>Downloads (from the browser cache, normally) the assemblies student code compiles against.</summary>
+    public static async Task EnsureReferencesAsync()
     {
-        if (a.TryGetRawMetadata(out byte* blob, out int length))
+        if (_refs != null) return;
+        var list = new List<MetadataReference>();
+        foreach (var name in ReferenceNames.Append("CSharpMobile"))
         {
-            var module = ModuleMetadata.CreateFromMetadata((IntPtr)blob, length);
-            return AssemblyMetadata.Create(module).GetReference(display: a.GetName().Name);
+            try
+            {
+                var bytes = await Bridge.JS.InvokeAsync<byte[]>("csm.fetchAssembly", name + ".dll");
+                if (bytes != null && bytes.Length > 0) list.Add(MetadataReference.CreateFromImage(bytes, filePath: name + ".dll"));
+            }
+            catch { /* not shipped; skip */ }
         }
-        return null;
+        if (list.Count < 3) throw new InvalidOperationException("Could not download the C# reference assemblies.");
+        _refs = list;
     }
 
     public static CompileOutput Compile(string code)
